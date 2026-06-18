@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SIM Network</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono&family=Syne:wght@700&display=swap');
+
+        :root {
+            --bg: #0a0e1a;
+            --card: #111827;
+            --accent: #00d4ff;
+            --accent-gold: #fbbf24;
+            --error: #ef4444;
+            --green: #10b981;
+        }
+
+        * { box-sizing: border-box; }
+        body { 
+            background: var(--bg); color: #e2e8f0; 
+            font-family: 'Segoe UI', sans-serif; 
+            margin: 0; padding: 20px; 
+        }
+        .wrapper { max-width: 1000px; margin: 0 auto; }
+
+        /* Simplified Screen Routing */
+        .screen { display: none; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ── Auth ── */
+        .auth-card {
+            background: var(--card); padding: 40px; border-radius: 20px;
+            border: 1px solid #1e2d45; text-align: center;
+            max-width: 380px; margin: 60px auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .logo { font-family: 'Syne', sans-serif; font-size: 32px; color: var(--accent); margin-bottom: 20px; }
+        
+        .tab-container { display: flex; gap: 10px; margin-bottom: 20px; }
+        .auth-tab {
+            flex: 1; padding: 10px; background: #0f172a; color: #64748b;
+            border: 1px solid #1e2d45; border-radius: 8px; cursor: pointer;
+            font-weight: bold; transition: 0.2s;
+        }
+        .auth-tab[data-active="true"] { 
+            background: rgba(0,212,255,0.1); color: var(--accent); border-color: var(--accent); 
+        }
+
+        input, select {
+            width: 100%; padding: 12px; margin: 8px 0;
+            background: #0f172a; border: 1px solid #334155;
+            color: white; border-radius: 8px; font-family: inherit;
+        }
+        select option { background: #111827; color: white; }
+
+        .btn {
+            background: var(--accent); color: #000; border: none;
+            padding: 14px; border-radius: 8px; font-weight: bold;
+            cursor: pointer; width: 100%; margin-top: 15px;
+            transition: 0.15s; font-family: inherit;
+        }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .msg-box {
+            margin-top: 12px; padding: 10px; border-radius: 8px;
+            font-size: 13px; display: none;
+        }
+        .msg-error { background: rgba(239,68,68,0.15); border: 1px solid var(--error); color: var(--error); display: block; }
+        .msg-ok    { background: rgba(16,185,129,0.15); border: 1px solid var(--green); color: var(--green); display: block; }
+
+        /* ── Friend Screen ── */
+        .friend-list { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
+        .person {
+            padding: 15px; border: 1px solid #334155; border-radius: 10px;
+            cursor: pointer; font-size: 14px; transition: 0.2s;
+        }
+        .person:hover { border-color: #475569; }
+        .person.picked { border-color: var(--green); background: rgba(16,185,129,0.1); }
+
+        /* ── Dashboard ── */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; border-bottom: 1px solid #1e2d45; padding-bottom: 15px;
+        }
+        .canvas-box {
+            background: #0f172a; border-radius: 15px; border: 1px solid #1e2d45;
+            margin-bottom: 20px; position: relative;
+        }
+        canvas { width: 100%; display: block; }
+        
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .box {
+            background: var(--card); padding: 20px; border-radius: 12px;
+            height: 220px; overflow-y: auto; font-family: 'Space Mono', monospace;
+            font-size: 12px; border: 1px solid #1e2d45;
+        }
+        .box h3 { margin: 0 0 10px 0; font-size: 14px; color: var(--accent); border-bottom: 1px solid #1e2d45; padding-bottom: 5px; font-family: 'Segoe UI', sans-serif;}
+        
+        .influencer-box { border: 2px solid var(--accent-gold); background: rgba(251,191,36,0.05); }
+        .influencer-box h3 { color: var(--accent-gold); border-bottom-color: var(--accent-gold); }
+        .inf-rank { font-size: 14px; font-weight: bold; color: white; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+        
+        .logout { color: var(--error); border: 1px solid var(--error); background: transparent; padding: 5px 12px; border-radius: 5px; cursor: pointer; transition: 0.2s; }
+        .logout:hover { background: rgba(239,68,68,0.1); }
+
+        .spinner {
+            width: 18px; height: 18px; border: 2px solid transparent;
+            border-top-color: #000; border-radius: 50%;
+            display: inline-block; animation: spin 0.7s linear infinite;
+            vertical-align: middle; margin-right: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        #statusBar {
+            position: fixed; bottom: 16px; right: 16px;
+            background: #1e293b; border: 1px solid #334155;
+            padding: 8px 14px; border-radius: 8px; font-size: 11px;
+            font-family: 'Space Mono', monospace; color: #10b981;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+
+    <div id="authScreen" class="screen" style="display: block;">
+        <div class="auth-card">
+            <div class="logo">SIM.net</div>
+            <div class="tab-container">
+                <button type="button" class="auth-tab" data-active="true" id="tabLogin" onclick="setAuthMode('login')">Login</button>
+                <button type="button" class="auth-tab" data-active="false" id="tabSignup" onclick="setAuthMode('signup')">Create Account</button>
+            </div>
+            <p id="authDesc" style="font-size:14px;color:#64748b;margin-bottom:20px;">Welcome back! Enter your login details.</p>
+            
+            <input type="text" id="userField" placeholder="Username">
+            <input type="password" id="passField" placeholder="Password">
+            
+            <div id="signupOnly" style="display:none;">
+                <select id="interestField">
+                    <option value="" disabled selected>Select Primary Interest</option>
+                    <option value="Tech">Tech</option>
+                    <option value="Music">Music</option>
+                    <option value="Sports">Sports</option>
+                    <option value="Gaming">Gaming</option>
+                    <option value="Art">Art</option>
+                </select>
+            </div>
+            
+            <button type="button" class="btn" id="authBtn" onclick="processAuth()">Login</button>
+            <div id="authMsg" class="msg-box"></div>
+        </div>
+    </div>
+
+    <div id="friendScreen" class="screen">
+        <div class="auth-card" style="max-width:500px;">
+            <h2>Build Your Network</h2>
+            <p style="color:#64748b;font-size:14px;">Select friends to initialize the social graph.</p>
+            <div class="friend-list">
+                <div class="person" onclick="pickFriend(this,'Sameera','Tech')">🧑‍💻 Sameera<br><small style="color:#64748b">Tech</small></div>
+                <div class="person" onclick="pickFriend(this,'Mayank','Sports')">⚽ Mayank<br><small style="color:#64748b">Sports</small></div>
+                <div class="person" onclick="pickFriend(this,'Aanya','Gaming')">🎮 Aanya<br><small style="color:#64748b">Gaming</small></div>
+                <div class="person" onclick="pickFriend(this,'Rohan','Music')">🎵 Rohan<br><small style="color:#64748b">Music</small></div>
+            </div>
+            <button type="button" class="btn" id="analyzeBtn" onclick="submitFriendsAndAnalyze()">Finish & Analyze</button>
+            <div id="friendMsg" class="msg-box"></div>
+        </div>
+    </div>
+
+    <div id="dashScreen" class="screen">
+        <div class="header">
+            <div class="logo" style="font-size:20px; margin-bottom: 0;">SIM ANALYZER</div>
+            <div>
+                <span id="welcomeMsg" style="margin-right:15px;font-size:14px;color:#94a3b8;"></span>
+                <button type="button" class="logout" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <div class="canvas-box">
+            <canvas id="mainCanvas" height="400"></canvas>
+            <div style="text-align:center;font-size:11px;padding:10px;color:#64748b;">
+                Hover over nodes to highlight local clusters
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="box influencer-box">
+                <h3>👑 Top Influencers (Degree Centrality)</h3>
+                <div id="infOut"></div>
+            </div>
+            <div class="box"><h3>Adjacency List</h3><div id="adjOut"></div></div>
+            <div class="box"><h3>Communities (DFS)</h3><div id="dfsOut"></div></div>
+            <div class="box"><h3>Echo Chambers</h3><div id="echoOut"></div></div>
+        </div>
+    </div>
+
+</div>
+
+<div id="statusBar">⬤ Secure Connection Established (Port 8080)</div>
+
+<script>
+// ════════════════════════════════════════════
+//  GLOBAL STATE & MOCK DATABASE
+// ════════════════════════════════════════════
+let isLoginMode = true;
+let session = null;
+let myFriends = [];
+let graphData = null;
+
+let nodes = [], adjList = [], hoveredId = -1;
+const colors = ["#00d4ff","#7c3aed","#10b981","#fbbf24","#f87171"];
+
+// 🚀 THIS IS YOUR FAKE DATABASE FOR THE PRESENTATION
+// It starts with one default account so you can log in immediately.
+let mockDB = {
+    "ishani": { password: "admin", interest: "Tech" }
+};
+
+// ════════════════════════════════════════════
+//  UTILITIES
+// ════════════════════════════════════════════
+function switchScreen(targetId) {
+    document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+    document.getElementById(targetId).style.display = 'block';
+}
+
+function showMsg(id, text, isError=true) {
+    const el = document.getElementById(id);
+    el.className = 'msg-box ' + (isError ? 'msg-error' : 'msg-ok');
+    el.innerText = text;
+}
+
+function hideMsg(id) {
+    const el = document.getElementById(id);
+    el.className = 'msg-box';
+    el.innerText = '';
+}
+
+// ════════════════════════════════════════════
+//  MOCK AUTH LOGIC (Handles Errors & New Users)
+// ════════════════════════════════════════════
+function setAuthMode(mode) {
+    isLoginMode = (mode === 'login');
+    document.getElementById('tabLogin').setAttribute('data-active', isLoginMode);
+    document.getElementById('tabSignup').setAttribute('data-active', !isLoginMode);
+    document.getElementById('authDesc').innerText = isLoginMode 
+        ? "Welcome back! Enter your login details." 
+        : "Join the network! Create a new profile.";
+    document.getElementById('authBtn').innerText = isLoginMode ? "Login" : "Create Account";
+    document.getElementById('signupOnly').style.display = isLoginMode ? "none" : "block";
+    hideMsg('authMsg');
+}
+
+function processAuth() {
+    const username = document.getElementById('userField').value.trim();
+    const password = document.getElementById('passField').value;
+    const interest = document.getElementById('interestField').value;
+
+    if (!username || !password) return showMsg('authMsg', 'Please provide both username and password.');
+    if (!isLoginMode && !interest) return showMsg('authMsg', 'Please select your primary interest.');
+
+    const btn = document.getElementById('authBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>' + (isLoginMode ? 'Authenticating...' : 'Creating profile...');
+    hideMsg('authMsg');
+
+    // Simulate backend network delay (800ms feels realistic)
+    setTimeout(() => {
+        if (isLoginMode) {
+            // --- LOGIN SCENARIO ---
+            if (!mockDB[username]) {
+                showMsg('authMsg', 'Error: User not found. Please create an account.');
+                btn.disabled = false;
+                btn.innerText = 'Login';
+                return;
+            }
+            if (mockDB[username].password !== password) {
+                showMsg('authMsg', 'Error: Invalid password.');
+                btn.disabled = false;
+                btn.innerText = 'Login';
+                return;
+            }
+            
+            // Login Success!
+            session = { username: username, interest: mockDB[username].interest };
+            showMsg('authMsg', 'Login successful! Loading...', false);
+            setTimeout(() => switchScreen('friendScreen'), 500);
+
+        } else {
+            // --- SIGNUP SCENARIO ---
+            if (mockDB[username]) {
+                showMsg('authMsg', 'Error: Username is already taken.');
+                btn.disabled = false;
+                btn.innerText = 'Create Account';
+                return;
+            }
+
+            // Save the new user into our fake database!
+            mockDB[username] = { password: password, interest: interest };
+            
+            // Signup Success!
+            session = { username: username, interest: interest };
+            showMsg('authMsg', 'Account created! Loading...', false);
+            setTimeout(() => switchScreen('friendScreen'), 500);
+        }
+    }, 800);
+}
+
+// ════════════════════════════════════════════
+//  FRIEND SELECTION
+// ════════════════════════════════════════════
+function pickFriend(el, name, interest) {
+    el.classList.toggle('picked');
+    const idx = myFriends.findIndex(f => f.name === name);
+    if (idx > -1) myFriends.splice(idx, 1);
+    else myFriends.push({ name, interest });
+}
+
+function submitFriendsAndAnalyze() {
+    const btn = document.getElementById('analyzeBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Transmitting to Backend...';
+    hideMsg('friendMsg');
+
+    setTimeout(() => {
+        graphData = runMockAnalysis(session.username, session.interest, myFriends);
+        document.getElementById('welcomeMsg').innerText = `👤 ${session.username}  |  ${session.interest}`;
+        switchScreen('dashScreen'); 
+        renderDashboard(graphData); 
+    }, 1200);
+}
+
+// ════════════════════════════════════════════
+//  MOCK BACKEND GRAPH ALGORITHMS
+// ════════════════════════════════════════════
+function runMockAnalysis(myName, myInterest, friends) {
+    const TOTAL_NET = 15;
+    let localNodes = [];
+    localNodes.push({ id: 0, name: myName + " (You)", interest: myInterest, isMe: true });
+    
+    friends.forEach((f, i) => {
+        localNodes.push({ id: i + 1, name: f.name, interest: f.interest, isMe: false });
+    });
+
+    const dummyNames = ["Sneha","Rahul","Kavya","Amit","Diya","Siddharth","Meera","Karan"];
+    const allInterests = ["Tech","Sports","Art","Music"];
+    
+    let idx = localNodes.length;
+    while(localNodes.length < TOTAL_NET) {
+        localNodes.push({ 
+            id: localNodes.length, 
+            name: dummyNames[idx % 8], 
+            interest: allInterests[idx % 4], 
+            isMe: false 
+        });
+        idx++;
+    }
+
+    let net = Array.from({length: TOTAL_NET}, () => new Set());
+    for (let i = 1; i <= friends.length && i < TOTAL_NET; i++) {
+        net[0].add(i);
+        net[i].add(0);
+    }
+
+    let added = 0;
+    while (added < 18) {
+        let a = Math.floor(Math.random() * TOTAL_NET);
+        let b = Math.floor(Math.random() * TOTAL_NET);
+        
+        if (a !== b && !net[a].has(b)) {
+            let sameInterestCount = 0;
+            net[a].forEach(neighbor => {
+                if (localNodes[neighbor].interest === localNodes[a].interest) sameInterestCount++;
+            });
+            
+            let futureTotal = net[a].size + 1.0;
+            let futureSame = sameInterestCount + (localNodes[a].interest === localNodes[b].interest ? 1.0 : 0.0);
+            let futureRatio = futureSame / futureTotal;
+            
+            if (futureRatio >= 0.60) {
+                if (localNodes[a].interest !== localNodes[b].interest) {
+                    net[a].add(b); net[b].add(a); added++;
+                }
+            } else {
+                net[a].add(b); net[b].add(a); added++;
+            }
+        }
+    }
+
+    let finalAdj = [];
+    for (let i = 0; i < TOTAL_NET; i++) {
+        finalAdj.push({
+            name: localNodes[i].name,
+            interest: localNodes[i].interest,
+            neighbors: Array.from(net[i])
+        });
+    }
+
+    let rank = [];
+    for (let i = 0; i < TOTAL_NET; i++) {
+        rank.push({ connections: net[i].size, id: i });
+    }
+    rank.sort((a, b) => b.connections - a.connections);
+    
+    let influencers = [];
+    for(let i=0; i<4 && i<TOTAL_NET; i++) {
+        influencers.push({
+            rank: i+1,
+            name: localNodes[rank[i].id].name,
+            connections: rank[i].connections
+        });
+    }
+
+    let visited = new Array(TOTAL_NET).fill(false);
+    let clusters = [];
+    let nodeCluster = new Array(TOTAL_NET).fill(0);
+
+    function dfsVisit(uid, cluster) {
+        visited[uid] = true;
+        cluster.push(uid);
+        net[uid].forEach(nb => {
+            if (!visited[nb]) dfsVisit(nb, cluster);
+        });
+    }
+
+    for (let i = 0; i < TOTAL_NET; i++) {
+        if (!visited[i]) {
+            let cluster = [];
+            dfsVisit(i, cluster);
+            let cid = clusters.length;
+            cluster.forEach(m => nodeCluster[m] = cid);
+            clusters.push(cluster);
+        }
+    }
+
+    let communities = clusters.map((c, i) => ({
+        cluster: i + 1,
+        members: c.map(m => localNodes[m].name)
+    }));
+
+    localNodes.forEach((n, i) => n.cluster = nodeCluster[i]);
+
+    let echoChambers = [];
+    for (let i = 0; i < TOTAL_NET; i++) {
+        if (net[i].size === 0) continue;
+        let same = 0;
+        net[i].forEach(nb => {
+            if (localNodes[nb].interest === localNodes[i].interest) same++;
+        });
+        let ratio = same / net[i].size;
+        if (ratio >= 0.6) {
+            echoChambers.push({
+                name: localNodes[i].name,
+                interest: localNodes[i].interest,
+                ratio: Math.round(ratio * 100)
+            });
+        }
+    }
+
+    return {
+        nodes: localNodes,
+        adjList: finalAdj,
+        influencers: influencers,
+        communities: communities,
+        echoChambers: echoChambers
+    };
+}
+
+// ════════════════════════════════════════════
+//  DASHBOARD & CANVAS RENDERER
+// ════════════════════════════════════════════
+function renderDashboard(data) {
+    if (!data || !data.nodes) return;
+
+    nodes = data.nodes.map(n => ({
+        id: n.id, name: n.name, interest: n.interest, cluster: n.cluster, isMe: n.isMe, x: 0, y: 0
+    }));
+    adjList = data.adjList.map(n => n.neighbors);
+
+    const canvas = document.getElementById('mainCanvas');
+    const W = canvas.width = canvas.offsetWidth;
+    const H = 400;
+
+    nodes.forEach(n => {
+        n.x = n.isMe ? W/2 : Math.random() * W;
+        n.y = n.isMe ? H/2 : Math.random() * H;
+    });
+
+    for (let s = 0; s < 120; s++) {
+        nodes.forEach((n1, i) => {
+            nodes.forEach((n2, j) => {
+                if (i === j) return;
+                let dx = n2.x - n1.x, dy = n2.y - n1.y;
+                let d  = Math.hypot(dx, dy) || 1;
+                if (d < 90 && !n1.isMe) {
+                    let f = (90 - d) * 0.06;
+                    n1.x -= (dx/d)*f; n1.y -= (dy/d)*f;
+                }
+            });
+            if(adjList[n1.id]) {
+                adjList[n1.id].forEach(fid => {
+                    let f = nodes[fid];
+                    if(!f) return;
+                    let dx = f.x - n1.x, dy = f.y - n1.y;
+                    let d  = Math.hypot(dx, dy) || 1;
+                    if (d > 130 && !n1.isMe) {
+                        let pull = (d - 130) * 0.03;
+                        n1.x += (dx/d)*pull; n1.y += (dy/d)*pull;
+                    }
+                });
+            }
+        });
+    }
+
+    document.getElementById('adjOut').innerHTML = nodes.map(n =>
+        `<div style="margin-bottom:5px;">${n.name}: <span style="color:#64748b">[${
+            (adjList[n.id] || []).map(id => nodes[id] ? nodes[id].name : '').join(', ')
+        }]</span></div>`
+    ).join('');
+
+    document.getElementById('infOut').innerHTML = (data.influencers || []).map(inf =>
+        `<div class="inf-rank">
+            <span style="color:#fbbf24;font-size:16px;">#${inf.rank}</span> ${inf.name}
+            <span style="font-size:11px;color:#10b981;font-weight:normal;margin-left:auto;">(${inf.connections} friends)</span>
+        </div>`
+    ).join('');
+
+    document.getElementById('dfsOut').innerHTML = (data.communities || []).map((c, i) =>
+        `<div style="margin-bottom:5px;color:${colors[i%5]}">Cluster ${c.cluster}: ${c.members.join(', ')}</div>`
+    ).join('');
+
+    if (!data.echoChambers || data.echoChambers.length === 0) {
+        document.getElementById('echoOut').innerHTML = "<div style='color:#10b981'>✅ Network is diverse. No echo chambers detected.</div>";
+    } else {
+        document.getElementById('echoOut').innerHTML = data.echoChambers.map(e =>
+            `<div style="color:#ef4444;margin-bottom:5px;">⚠ ${e.name} — ${e.ratio}% friends are into <b>${e.interest}</b></div>`
+        ).join('');
+    }
+
+    drawGraph();
+}
+
+function drawGraph() {
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    adjList.forEach((friends, u) => {
+        if(!friends) return;
+        friends.forEach(v => {
+            if (u < v && nodes[u] && nodes[v]) {
+                const active = hoveredId === -1 || hoveredId === u || hoveredId === v;
+                ctx.strokeStyle = active ? "rgba(0,212,255,0.6)" : "rgba(255,255,255,0.03)";
+                ctx.lineWidth   = (hoveredId === u || hoveredId === v) ? 2 : 1;
+                ctx.beginPath();
+                ctx.moveTo(nodes[u].x, nodes[u].y);
+                ctx.lineTo(nodes[v].x, nodes[v].y);
+                ctx.stroke();
+            }
+        });
+    });
+
+    nodes.forEach(n => {
+        const active = hoveredId === -1 || hoveredId === n.id || (adjList[n.id] && adjList[n.id].includes(hoveredId));
+        ctx.globalAlpha = active ? 1 : 0.15;
+        ctx.fillStyle   = n.isMe ? "#fbbf24" : colors[n.cluster % 5];
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.isMe ? 12 : 8, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = "white";
+        ctx.font = "10px Arial";
+        ctx.fillText(n.name, n.x - 15, n.y + 20);
+        ctx.globalAlpha = 1;
+    });
+}
+
+document.getElementById('mainCanvas').onmousemove = (e) => {
+    const rect = e.target.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (e.target.width / rect.width);
+    const y = (e.clientY - rect.top)  * (e.target.height / rect.height);
+    let found = -1;
+    nodes.forEach(n => { if (Math.hypot(n.x - x, n.y - y) < 15) found = n.id; });
+    if (found !== hoveredId) { hoveredId = found; drawGraph(); }
+};
+
+document.getElementById('mainCanvas').onmouseleave = () => {
+    if (hoveredId !== -1) { hoveredId = -1; drawGraph(); }
+};
+
+function logout() {
+    // 1. Clear session and graph data
+    session = null; myFriends = []; graphData = null;
+    nodes = []; adjList = []; hoveredId = -1;
+    
+    // 2. Clear the input fields and friend selections
+    document.getElementById('userField').value = '';
+    document.getElementById('passField').value = '';
+    document.querySelectorAll('.person').forEach(p => p.classList.remove('picked'));
+    
+    // 3. Reset the Login button and messages
+    const authBtn = document.getElementById('authBtn');
+    authBtn.disabled = false;
+    authBtn.innerText = isLoginMode ? "Login" : "Create Account";
+    hideMsg('authMsg');
+    
+    // 4. THE FIX: Reset the Analyze button and messages!
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    analyzeBtn.disabled = false;
+    analyzeBtn.innerText = "Finish & Analyze";
+    hideMsg('friendMsg');
+    
+    // 5. Send user back to the auth screen
+    switchScreen('authScreen');
+}
+</script>
+</body>
+</html>
