@@ -1,6 +1,15 @@
 # Social Network Analyzer
 
-A full-stack social network simulation and analysis tool built with C++, PHP, MySQL, and vanilla JavaScript. Users can register, pick friends, and visualize their network as an interactive graph — with real graph algorithms running under the hood.
+A full-stack social network simulation and analysis tool built with C++, PHP, MySQL, and vanilla JavaScript. Users register, pick friends from the existing user pool, and visualize the resulting network as an interactive graph — with real graph algorithms (centrality, community detection, echo chambers, PageRank) running under the hood.
+
+---
+
+## Overview
+
+The app has two halves:
+
+- **A C++ seed script** (`main.cpp`) that generates a randomized network of users, runs graph analysis on it, and exports the result as SQL.
+- **A web app** (PHP + MySQL + vanilla JS/Canvas) where users can register, connect with existing users, and explore the live network through an interactive, force-rendered graph.
 
 ---
 
@@ -31,10 +40,10 @@ A full-stack social network simulation and analysis tool built with C++, PHP, My
 ## Project Structure
 
 ```
-Social Network Analyzer/
+Social_Media_Analyzer/
 ├── index.html          # Full single-page frontend (auth → friend picker → dashboard)
 ├── main.cpp            # C++ seed script — generates network & exports data.sql
-├── data.sql            # Pre-generated seed data (12 nodes, 14 edges)
+├── data.sql             # Pre-generated seed data (12 nodes, 14 edges)
 ├── register.php        # User registration endpoint
 ├── getNetwork.php      # Returns all nodes + edges as JSON
 ├── addEdges.php        # Saves a friendship connection to the DB
@@ -74,9 +83,9 @@ CREATE TABLE edges (
 
 ### Steps
 
-1. **Clone or download** the project into your XAMPP web root:
+1. **Clone the project** into your XAMPP web root:
    ```
-   C:\xampp\htdocs\Social Network Analyzer\
+   C:\xampp\htdocs\Social_Media_Analyzer\
    ```
 
 2. **Start XAMPP** — enable both Apache and MySQL from the control panel.
@@ -87,7 +96,7 @@ CREATE TABLE edges (
 
 5. **Open the app** in your browser:
    ```
-   http://localhost/Social Network Analyzer/index.html
+   http://localhost/Social_Media_Analyzer/index.html
    ```
 
 ---
@@ -103,7 +112,7 @@ g++ main.cpp -o seed
 
 Then re-import the generated `data.sql` into your database.
 
-> **Note:** The output path in `main.cpp` is currently hardcoded to `C:/xampp/htdocs/Social Network Analyzer/data.sql`. Update this path if your setup differs.
+> **Note:** The output path in `main.cpp` is currently hardcoded to `C:/xampp/htdocs/Social Network Analyzer/data.sql`. Update this path to match your folder name/location before running.
 
 ---
 
@@ -129,13 +138,21 @@ All four algorithms are implemented in `main.cpp` and run on the generated graph
 | `addEdges.php` | POST | Adds a friendship edge (`userId`, `friendId`) |
 | `saveNetwork.php` | POST | Replaces all nodes and edges with a new network payload |
 
+---
 
 ## Known Limitations
 
 - Passwords are stored in plaintext — add hashing (e.g. `password_hash()`) before any real deployment
-- PHP queries use string interpolation — switch to prepared statements to prevent SQL injection
+- `register.php` is currently a stub and doesn't persist users to the database
+- PHP queries use string interpolation in places (e.g. `addEdges.php`) — switch to prepared statements to prevent SQL injection
 - The C++ seed path is hardcoded to a Windows XAMPP path
 - PageRank is computed in C++ only; the frontend dashboard currently shows degree centrality as the influencer metric
 
 ---
 
+## Future Improvements
+
+- Persist user accounts properly (hashed passwords, real registration flow)
+- Surface PageRank results in the dashboard alongside degree centrality
+- Make the seed script's output path configurable (CLI arg or relative path)
+- Add prepared statements / parameterized queries across all PHP endpoints
